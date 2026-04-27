@@ -33,6 +33,23 @@ export OPENAI_API_KEY="EMPTY"
 
 ## Run
 
+### 1) Ingest Bharatiya Nyaya Sanhita from your local PDF into FAISS
+
+```bash
+export BNS_PDF_PATH="/absolute/path/to/BNS.pdf"
+INGEST_BNS=true python multiagent_bns.py
+```
+
+### 2) Optional fallback: ingest from internet source
+
+If `BNS_PDF_PATH` is not set, ingestion falls back to the internet source configured in code.
+
+```bash
+unset BNS_PDF_PATH
+INGEST_BNS=true python multiagent_bns.py
+```
+
+### 3) Normal run (without re-ingestion)
 ### 1) Ingest Bharatiya Nyaya Sanhita into FAISS
 
 ```bash

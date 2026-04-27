@@ -11,6 +11,7 @@ import numpy as np
 import requests
 from bs4 import BeautifulSoup
 from openai import OpenAI
+from pypdf import PdfReader
 from sentence_transformers import SentenceTransformer
 
 
@@ -128,6 +129,20 @@ class BNSIngestor:
             start = max(0, end - overlap)
         return chunks
 
+    @staticmethod
+    def extract_text_from_pdf(pdf_path: str) -> str:
+        reader = PdfReader(pdf_path)
+        pages: List[str] = []
+        for page_idx, page in enumerate(reader.pages, start=1):
+            page_text = page.extract_text() or ""
+            page_text = page_text.strip()
+            if not page_text:
+                continue
+            pages.append(f"[Page {page_idx}]\n{page_text}")
+        if not pages:
+            raise RuntimeError(f"No readable text found in PDF: {pdf_path}")
+        return "\n\n".join(pages)
+
 
 class MultiAgentSystem:
     """Three-agent architecture with OpenAI-style tool calling over a vLLM endpoint."""
@@ -145,6 +160,13 @@ class MultiAgentSystem:
         self.memory = FaissMemory(dim=384, db_dir=db_dir)
 
     # ---------- ingestion ----------
+    def ingest_bns(self, pdf_path: str | None = None) -> None:
+        if pdf_path:
+            raw = BNSIngestor.extract_text_from_pdf(pdf_path)
+            source_meta = {"doc": "Bharatiya Nyaya Sanhita, PDF", "path": pdf_path}
+        else:
+            raw = BNSIngestor.fetch_bns_text()
+            source_meta = {"doc": "Bharatiya Nyaya Sanhita, 2023", "url": BNS_SOURCE_URL}
     def ingest_bns(self) -> None:
         raw = BNSIngestor.fetch_bns_text()
         chunks = BNSIngestor.chunk_text(raw)
@@ -154,12 +176,14 @@ class MultiAgentSystem:
                 id=str(uuid.uuid4()),
                 text=chunk,
                 source="bns",
+                meta=source_meta,
                 meta={"doc": "Bharatiya Nyaya Sanhita, 2023", "url": BNS_SOURCE_URL},
             )
             for chunk in chunks
         ]
         vecs = self.embedder.embed([r.text for r in records])
         self.memory.add(vecs, records)
+        print(f"Ingested {len(records)} BNS chunks into FAISS from {'PDF' if pdf_path else 'web source'}.")
         print(f"Ingested {len(records)} BNS chunks into FAISS.")
 
     # ---------- conversation memory ----------
@@ -313,10 +337,12 @@ def main() -> None:
     model_name = os.getenv("MODEL_NAME", "gpt-oss")
     vllm_base_url = os.getenv("VLLM_BASE_URL", "http://localhost:8000/v1")
     api_key = os.getenv("OPENAI_API_KEY", "EMPTY")
+    bns_pdf_path = os.getenv("BNS_PDF_PATH")
 
     agent = MultiAgentSystem(model_name=model_name, vllm_base_url=vllm_base_url, api_key=api_key)
 
     if os.getenv("INGEST_BNS", "false").lower() == "true":
+        agent.ingest_bns(pdf_path=bns_pdf_path)
         agent.ingest_bns()
 
     q = "What is punishment for theft under Bharatiya Nyaya Sanhita?"
