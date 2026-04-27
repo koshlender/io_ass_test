@@ -50,6 +50,13 @@ INGEST_BNS=true python multiagent_bns.py
 ```
 
 ### 3) Normal run (without re-ingestion)
+### 1) Ingest Bharatiya Nyaya Sanhita into FAISS
+
+```bash
+INGEST_BNS=true python multiagent_bns.py
+```
+
+### 2) Normal run (without re-ingestion)
 
 ```bash
 python multiagent_bns.py

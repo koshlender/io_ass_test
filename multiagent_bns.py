@@ -167,6 +167,8 @@ class MultiAgentSystem:
         else:
             raw = BNSIngestor.fetch_bns_text()
             source_meta = {"doc": "Bharatiya Nyaya Sanhita, 2023", "url": BNS_SOURCE_URL}
+    def ingest_bns(self) -> None:
+        raw = BNSIngestor.fetch_bns_text()
         chunks = BNSIngestor.chunk_text(raw)
 
         records = [
@@ -175,12 +177,14 @@ class MultiAgentSystem:
                 text=chunk,
                 source="bns",
                 meta=source_meta,
+                meta={"doc": "Bharatiya Nyaya Sanhita, 2023", "url": BNS_SOURCE_URL},
             )
             for chunk in chunks
         ]
         vecs = self.embedder.embed([r.text for r in records])
         self.memory.add(vecs, records)
         print(f"Ingested {len(records)} BNS chunks into FAISS from {'PDF' if pdf_path else 'web source'}.")
+        print(f"Ingested {len(records)} BNS chunks into FAISS.")
 
     # ---------- conversation memory ----------
     def store_turn(self, user_query: str, assistant_answer: str) -> None:
@@ -339,6 +343,7 @@ def main() -> None:
 
     if os.getenv("INGEST_BNS", "false").lower() == "true":
         agent.ingest_bns(pdf_path=bns_pdf_path)
+        agent.ingest_bns()
 
     q = "What is punishment for theft under Bharatiya Nyaya Sanhita?"
     result = agent.ask(q)
